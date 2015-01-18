@@ -1,0 +1,81 @@
+---
+title: "Reproducible Research - Assignment 1"
+output: html_document
+date: "January 2015"
+---
+
+First we need to load the data. Let's look at the first few lines.
+```{r}
+activity <- read.csv('activity.csv')
+head(activity)
+```
+
+
+Now we want to sum up the total number of steps taken each day.
+```{r}
+activitySum <- aggregate(activity$steps, FUN = sum, by = list(activity$date))
+```
+
+
+What is the mean total number of steps taken per day?
+```{r, warning=FALSE, message=FALSE}
+library(ggplot2)
+qplot(x, data = activitySum, xlab = "Steps taken daily")
+summary(activitySum)
+meanx <- mean(activitySum$x, na.rm = TRUE)
+medianx <- median(activitySum$x, na.rm = TRUE)
+
+```
+The mean is `r meanx` steps and the median is `r medianx` steps per day
+
+
+```{r}
+library(plyr)
+library(ggplot2)
+dayavg <- ddply(activity, .(interval), summarize, mean = mean(steps, na.rm = TRUE))
+qplot(interval, mean, data = dayavg, geom = 'line',
+      xlab = "Time", ylab = "Avg number of steps")
+maxinterval <- dayavg[which(dayavg$mean == max(dayavg$mean)), 1]
+```
+The greatest number of steps occurs in interval `r maxinterval`
+
+
+Imputing Missing Values
+```{r}
+ok <- complete.cases(activity)
+missing <- sum(!ok)
+```
+There are `r missing` rows containing missing values (NA's)
+
+```{r}
+lookupInterval <- function(interval){
+  avgSteps <- dayavg[match(interval, dayavg$interval),2]
+  avgSteps
+}
+
+cleanActivity <- activity
+cleanActivity[is.na(cleanActivity),][,1] <-
+  lookupInterval(cleanActivity[is.na(cleanActivity),][,3])
+
+cleanActivitySum <- aggregate(cleanActivity$steps, FUN = sum, by = list(cleanActivity$date))
+qplot(x, data = cleanActivitySum, xlab = "Steps taken daily")
+cleanMean <- mean(cleanActivitySum$x, na.rm = TRUE)
+cleanMedian <- median(cleanActivitySum$x, na.rm = TRUE)
+```
+The mean is `r cleanMean` steps and the median is `r cleanMedian` steps per day.  
+After imputing values, the mean and median are now equal.  
+
+For days that are not weekends, more steps are taken earlier in the morning.
+```{r}
+cleanActivity$day <- as.factor(weekdays(as.Date(cleanActivity$date)))
+cleanActivity$weekend <- cleanActivity$day %in% c("Saturday", "Sunday")
+
+cleanAvg <- ddply(cleanActivity, .(interval, weekend),
+                    summarize, mean = mean(steps, na.rm = TRUE))
+
+qplot(interval, mean, data = cleanAvg, geom = 'line', facets = weekend~.,
+      xlab = "Time", ylab = "Avg number of steps")
+```
+
+
+
